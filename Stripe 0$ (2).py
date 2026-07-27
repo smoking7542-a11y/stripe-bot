@@ -1004,8 +1004,20 @@ def start_bot():
             print(f"Error in bot loop: {e}")
             time.sleep(5)
 
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
 if __name__ == "__main__":
     if not TELEGRAM_BOT_TOKEN:
         print("Error: Please set TELEGRAM_BOT_TOKEN at the top of the file.")
     else:
+        threading.Thread(target=run_web_server, daemon=True).start()
         start_bot()
