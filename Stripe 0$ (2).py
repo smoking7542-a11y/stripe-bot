@@ -1,4 +1,4 @@
-import requests, re, random, string, time, threading
+import requests, re, random, string, time, threading, os, json
 from concurrent.futures import ThreadPoolExecutor
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -61,11 +61,19 @@ def run(inp):
     yy = yy[-2:] if len(yy) == 4 else yy
     
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--window-size=1280,720")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-setuid-sandbox")
+    chrome_options.add_argument("--single-process")
+    chrome_options.add_argument("--no-zygote")
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false")
+    chrome_options.add_argument("--disable-notifications")
+    chrome_options.add_argument("--window-size=800,600")
+    chrome_options.add_argument("--js-flags=--max-old-space-size=128")
     
     driver = webdriver.Chrome(options=chrome_options)
     try:
@@ -340,7 +348,7 @@ def edit_telegram_msg(chat_id, msg_id, txt, reply_markup=None):
 
 import json, os
 
-USER_DB_FILE = r"D:\My Data\Downloads\Telegram Desktop\users_db.json"
+USER_DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users_db.json")
 
 def load_user_db():
     if os.path.exists(USER_DB_FILE):
@@ -926,7 +934,7 @@ def handle_message(chat_id, text, extra_text="", from_user=None):
                 markup = build_reply_markup(job_id, job["counts"]["live"], total_cards, False)
                 edit_telegram_msg(chat_id, msg_id, progress_text, markup)
 
-        with ThreadPoolExecutor(max_workers=3) as ex:
+        with ThreadPoolExecutor(max_workers=1) as ex:
             ex.map(check_card, cards)
 
         final_elapsed = time.time() - job["start_time"]
