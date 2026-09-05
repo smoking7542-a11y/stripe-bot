@@ -75,7 +75,10 @@ def run(inp):
     chrome_options.add_argument("--window-size=800,600")
     chrome_options.add_argument("--js-flags=--max-old-space-size=128")
     
-    driver = webdriver.Chrome(options=chrome_options)
+    from selenium.webdriver.chrome.service import Service
+    from webdriver_manager.chrome import ChromeDriverManager
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     try:
         driver.get(f"{B}/my-account/")
         
@@ -346,7 +349,6 @@ def edit_telegram_msg(chat_id, msg_id, txt, reply_markup=None):
     except Exception:
         pass
 
-import json, os
 
 USER_DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users_db.json")
 
