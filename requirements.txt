@@ -2,3 +2,4 @@ requests
 selenium
 flask
 gunicorn
+webdriver-manager
