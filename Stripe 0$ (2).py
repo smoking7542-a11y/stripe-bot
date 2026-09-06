@@ -1072,9 +1072,64 @@ def handle_message(chat_id, text, extra_text="", from_user=None):
         # Ignore messages that don't start with /st or /mst or /start
         pass
 
+from concurrent.futures import ThreadPoolExecutor
+
+def process_update(update):
+    try:
+        if "callback_query" in update:
+            handle_callback_query(update["callback_query"])
+            return
+
+        msg = update.get("message")
+        if not msg:
+            return
+
+        chat_id = msg["chat"]["id"]
+        chat_type = msg.get("chat", {}).get("type", "")
+        if chat_type in ["group", "supergroup"]:
+            GROUP_CHAT_IDS.add(chat_id)
+            groups = USER_DB.get("group_chat_ids", [])
+            if chat_id not in groups:
+                groups.append(chat_id)
+                USER_DB["group_chat_ids"] = groups
+                save_user_db(USER_DB)
+
+        text = (msg.get("text") or msg.get("caption") or "").strip()
+        
+        # EARLY FILTER: Only process commands!
+        valid_commands = ["/st", "/mst", "/start", "/grant", "/addcredits"]
+        if not any(text.startswith(cmd) for cmd in valid_commands):
+            return
+
+        from_user = msg.get("from")
+        doc = msg.get("document")
+        replied_msg = msg.get("reply_to_message")
+        
+        # Only check document if someone explicitly sent /mst command
+        if text.startswith("/mst") and not doc and replied_msg:
+            doc = replied_msg.get("document")
+
+        file_text = ""
+        if doc and text.startswith("/mst"):
+            file_text = get_file_content(doc.get("file_id"))
+
+        replied_text = ""
+        if replied_msg and "text" in replied_msg:
+            replied_text = replied_msg["text"].strip()
+
+        extra_text = (file_text + "\n" + replied_text).strip()
+        
+        handle_message(chat_id, text, extra_text, from_user)
+    except Exception as e:
+        print(f"Error processing update: {e}")
+
 def start_bot():
     print("[+] Telegram Bot is running... Press Ctrl+C to stop.")
     offset = 0
+    # Use ThreadPoolExecutor to prevent "can't start new thread" limit
+    # This ensures max 20 active tasks concurrently, queuing the rest.
+    pool = ThreadPoolExecutor(max_workers=20)
+    
     while True:
         try:
             url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
@@ -1084,46 +1139,8 @@ def start_bot():
                 continue
             for update in r.get("result", []):
                 offset = update["update_id"] + 1
+                pool.submit(process_update, update)
                 
-                # Handle button clicks
-                if "callback_query" in update:
-                    threading.Thread(target=handle_callback_query, args=(update["callback_query"],)).start()
-                    continue
-                    
-                msg = update.get("message")
-                if not msg:
-                    continue
-                    
-                chat_id = msg["chat"]["id"]
-                chat_type = msg.get("chat", {}).get("type", "")
-                if chat_type in ["group", "supergroup"]:
-                    GROUP_CHAT_IDS.add(chat_id)
-                    groups = USER_DB.get("group_chat_ids", [])
-                    if chat_id not in groups:
-                        groups.append(chat_id)
-                        USER_DB["group_chat_ids"] = groups
-                        save_user_db(USER_DB)
-                    
-                from_user = msg.get("from")
-                text = (msg.get("text") or msg.get("caption") or "").strip()
-                
-                # Check document in current message or in replied message
-                doc = msg.get("document")
-                replied_msg = msg.get("reply_to_message")
-                if not doc and replied_msg:
-                    doc = replied_msg.get("document")
-                    
-                file_text = ""
-                if doc:
-                    file_text = get_file_content(doc.get("file_id"))
-                    
-                replied_text = ""
-                if replied_msg and "text" in replied_msg:
-                    replied_text = replied_msg["text"].strip()
-                    
-                extra_text = (file_text + "\n" + replied_text).strip()
-                
-                threading.Thread(target=handle_message, args=(chat_id, text, extra_text, from_user)).start()
         except Exception as e:
             print(f"Error in bot loop: {e}")
             time.sleep(5)
