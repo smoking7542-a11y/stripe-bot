@@ -165,6 +165,8 @@ jn   = lambda h, k: (m := re.search(rf'"{k}"\s*:\s*"([^"]+)"', h)) and m.group(1
 icon = lambda s: '✅' if s == 'APPROVED' else '❌' if s == 'DECLINED' else '⚠️'
 
 def run(inp):
+    print(f"\n[*] ----------------------------------------", flush=True)
+    print(f"[*] Browser started checking card: {inp.strip()}", flush=True)
     p = inp.strip().split('|')
     if len(p) != 4:
         return "ERROR", "Invalid format"
@@ -941,6 +943,7 @@ def handle_message(chat_id, text, extra_text="", from_user=None):
         msg_id = status_msg["result"]["message_id"]
         
         st, response_msg = run(card)
+        print(f"[-] Result [{card}]: {st} - {response_msg}\n", flush=True)
         u_data = get_user_data(user_id)
         access_type = u_data.get("access", "Trial")
         is_prem = u_data.get("is_premium") or access_type in ["Core", "Elite", "Root", "Premium", "VIP"]
@@ -1015,6 +1018,7 @@ def handle_message(chat_id, text, extra_text="", from_user=None):
             t_start = time.time()
             st, response_msg = run(c)
             t_elapsed = round(time.time() - t_start, 2)
+            print(f"[-] Result [{c}]: {st} - {response_msg} ({t_elapsed}s)\n", flush=True)
             
             with lock:
                 if job["stop"]:
