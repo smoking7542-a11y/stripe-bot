@@ -1,4 +1,116 @@
 import requests, re, random, string, time, threading, os, json
+PROXIES = [
+    "px051703.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px420602.pointtoserver.com:10780:purevpn0s13486779:f3wxccw3",
+    "px180801.pointtoserver.com:10780:purevpn0s2495712:lwpjuxgr",
+    "ca-mon.pvdata.host:8080:g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2",
+    "px150902.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px270401.pointtoserver.com:10780:purevpn0s13933117:&%Bl}H6HMXvJ",
+    "px015601.pointtoserver.com:10780:purevpn0s13811607:Wb%lj!uEc5&a",
+    "px014004.pointtoserver.com:10780:purevpn0s12948370:e0q5xodo",
+    "us6.cactussstp.com:3129:hughmuir2:lisamarie11",
+    "nl3.cactussstp.com:3129:hughmuir2:lisamarie11",
+    "px022507.pointtoserver.com:10780:purevpn0s551451:9dpdlc2nfxgj",
+    "px040805.pointtoserver.com:10780:purevpn0s551451:9dpdlc2nfxgj",
+    "px121102.pointtoserver.com:10780:purevpn0s551451:9dpdlc2nfxgj",
+    "px016104.pointtoserver.com:10780:purevpn0s551451:9dpdlc2nfxgj",
+    "px180801.pointtoserver.com:10780:purevpn0s551451:9dpdlc2nfxgj",
+    "px121001.pointtoserver.com:10780:purevpn0s551451:9dpdlc2nfxgj",
+    "px241102.pointtoserver.com:10780:purevpn0s551451:9dpdlc2nfxgj",
+    "px023005.pointtoserver.com:10780:reseller3270s320237:7Grp9Gki",
+    "px051003.pointtoserver.com:10780:reseller3270s320237:7Grp9Gki",
+    "px591801.pointtoserver.com:10780:reseller3270s320237:7Grp9Gki",
+    "px040706.pointtoserver.com:10780:reseller3270s320237:7Grp9Gki",
+    "px019603.pointtoserver.com:10780:reseller3270s320237:7Grp9Gki",
+    "px520401.pointtoserver.com:10780:reseller3270s320237:7Grp9Gki",
+    "34.43.46.91:80",
+    "58.254.153.146:17981",
+    "px023005.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px043006.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px410701.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px022507.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px040805.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px520401.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px013401.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px013403.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px400408.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px180801.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "px270401.pointtoserver.com:10780:purevpn0s9889572:jx5q0xao",
+    "194.54.83.21:8080:g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2",
+    "91.240.67.13:8080:g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2",
+    "206.189.139.234:8080:g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2",
+    "45.148.5.4:8080:g2rTXpNfPdcw2fzGtWKp62yH:nizar1elad2"
+]
+
+import zipfile
+import tempfile
+
+def create_proxy_extension(proxy_str):
+    parts = proxy_str.split(':')
+    if len(parts) == 2:
+        return None  # No auth needed
+    
+    host, port, user, password = parts[0], parts[1], parts[2], parts[3]
+    
+    manifest_json = '''{
+        "version": "1.0.0",
+        "manifest_version": 2,
+        "name": "Chrome Proxy",
+        "permissions": [
+            "proxy",
+            "tabs",
+            "unlimitedStorage",
+            "storage",
+            "<all_urls>",
+            "webRequest",
+            "webRequestBlocking"
+        ],
+        "background": {
+            "scripts": ["background.js"]
+        },
+        "minimum_chrome_version":"22.0.0"
+    }'''
+    
+    background_js = f'''
+    var config = {{
+        mode: "fixed_servers",
+        rules: {{
+          singleProxy: {{
+            scheme: "http",
+            host: "{host}",
+            port: parseInt({port})
+          }},
+          bypassList: ["localhost"]
+        }}
+      }};
+
+    chrome.proxy.settings.set({{value: config, scope: "regular"}}, function() {{}});
+
+    function callbackFn(details) {{
+        return {{
+            authCredentials: {{
+                username: "{user}",
+                password: "{password}"
+            }}
+        }};
+    }}
+
+    chrome.webRequest.onAuthRequired.addListener(
+                callbackFn,
+                {{urls: ["<all_urls>"]}},
+                ['blocking']
+    );
+    '''
+    
+    fd, path = tempfile.mkstemp(suffix='.zip')
+    os.close(fd)
+    
+    with zipfile.ZipFile(path, 'w') as zp:
+        zp.writestr("manifest.json", manifest_json)
+        zp.writestr("background.js", background_js)
+        
+    return path
+
 from concurrent.futures import ThreadPoolExecutor
 from selenium import webdriver
 from selenium.webdriver.common.by import By
