@@ -247,36 +247,53 @@ def run(inp):
         driver.switch_to.default_content()
         time.sleep(0.5)
         
-        submit_btn = WebDriverWait(driver, 8).until(
+        submit_btn = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "#place_order"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", submit_btn)
-        time.sleep(0.3)
+        time.sleep(1)
         driver.execute_script("arguments[0].click();", submit_btn)
         
-        # Poll for result notice or URL change (up to 10 seconds)
+        # Poll for result notice or URL change (up to 15 seconds)
         err_text = None
-        for _ in range(20):
+        for _ in range(30):
             time.sleep(0.5)
             try:
-                error_el = driver.find_element(By.CSS_SELECTOR, "ul.woocommerce-error")
-                if error_el and error_el.text.strip():
-                    err_text = error_el.text.encode('ascii','ignore').decode()
+                # Check for WooCommerce error
+                error_el = driver.find_elements(By.CSS_SELECTOR, ".woocommerce-error, .woocommerce-message, .woocommerce-info")
+                for el in error_el:
+                    if el.text.strip():
+                        err_text = el.text.encode('ascii','ignore').decode()
+                        break
+                if err_text:
+                    break
+                    
+                # Also check inline Stripe error if form wasn't submitted properly
+                stripe_err = driver.find_elements(By.CSS_SELECTOR, ".stripe-source-errors, #stripe-card-errors")
+                for el in stripe_err:
+                    if el.text.strip():
+                        err_text = el.text.encode('ascii','ignore').decode()
+                        break
+                if err_text:
                     break
             except Exception:
                 pass
+                
+            # If URL changes to success page
+            if "payment-methods" in driver.current_url and "add-payment-method" not in driver.current_url:
+                err_text = "Card added successfully"
+                break
+                
         if err_text:
             err_lower = err_text.lower()
             live_keywords = [
                 'insufficient', 'balance', 'zip', 'postal code', 'postcode', 
                 'requires action', 'authentication', 'otp', '3d', 'charged',
-                'payment successful', 'order placed', 'thank you', 'success'
+                'payment successful', 'order placed', 'thank you', 'success',
+                'card added successfully'
             ]
             is_live = any(kw in err_lower for kw in live_keywords)
             return ("APPROVED" if is_live else "DECLINED"), err_text
-
-        if "payment-methods" in driver.current_url and "add-payment-method" not in driver.current_url:
-            return "APPROVED", "Card added successfully"
 
         return "DECLINED", "Card check failed or timed out"
             
